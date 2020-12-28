@@ -90,7 +90,7 @@ function append_jpath_component(jpath, component) { #{{{1
 	if (0 == STREAM) {
 		return cb_append_jpath_component(jpath, component)
 	} else {
-		return (jpath != "" ? jpath "," : "") component
+		return (jpath != "" ? jpath "/" : "") component
 	}
 }
 
@@ -98,7 +98,7 @@ function append_jpath_value(jpath, value) { #{{{1
 	if (0 == STREAM) {
 		return cb_append_jpath_value(jpath, value)
 	} else {
-		return sprintf("[%s]\t%s", jpath, value)
+		return sprintf("%s %s", jpath, value ~ /^".*"$/ ? substr(value, 2, length(value) - 2) : value)
 	}
 }
 
@@ -188,7 +188,10 @@ function parse_object(a1,   key,obj) { #{{{1
 	if (TOKEN != "}") {
 		while (1) {
 			if (TOKEN ~ /^".*"$/) {
-				key=TOKEN
+				key=substr(TOKEN, 2, length(TOKEN) - 2)
+				key=gensub(/\\?((\\\\)* )/, "\\\\\\1", "g", key)  # escape every space character with a backslash if not already escaped
+				key=gensub(/((\\\\)+)/, "\\1\\1", "g", key)  # double every sequence of an even number of backslashes
+				key=gensub(/\\?((\\\\)*\/)/, "\\\\\\\\\\1", "g", key)  # escape every slash with two backslashes
 			} else {
 				report("string", TOKEN ? TOKEN : "EOF")
 				return 3
@@ -257,9 +260,6 @@ function parse_value(a1, a2,   jpath,ret,x,reason) { #{{{1
 	# jpath=="" occurs on starting and ending the parsing session.
 	# VALUE=="" is set on parsing a non-empty array or a non-empty object.
 	# Either condition is a reason to discard the parsed jpath if BRIEF>0.
-	if (0 < BRIEF && ("" == jpath || "" == VALUE)) {
-		return 0
-	}
 
 	# BRIEF>1 is a bit mask that selects if an empty string/array/object is passed on
 	if (0 < BRIEF && (NO_EMPTY_STR && VALUE=="\"\"" || NO_EMPTY_ARY && VALUE=="[]" || NO_EMPTY_OBJ && VALUE=="{}")) {
